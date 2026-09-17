@@ -1,0 +1,52 @@
+services:
+
+  # ===========================================================================
+  # PostgreSQL OLTP
+  # ===========================================================================
+
+  postgres-oltp:
+    image: postgres:17
+    container_name: ecommerce-postgres-oltp
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_OLTP_DB}
+      POSTGRES_USER: ${POSTGRES_OLTP_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_OLTP_PASS}
+
+    ports:
+      - "${POSTGRES_OLTP_HOST_PORT}:5432"
+
+    volumes:
+      - postgres_oltp_data:/var/lib/postgresql/data
+      - ./docker/postgres_oltp/init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_OLTP_USER} -d ${POSTGRES_OLTP_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - ecommerce
+
+# ====================================================================
+# Volumes
+# ====================================================================
+
+volumes:
+  postgres_oltp_data:
+
+# ====================================================================
+# Network
+# ====================================================================
+
+networks:
+
+  ecommerce:
+    name: ecommerce-network
+    driver: bridge
