@@ -20,6 +20,7 @@ services:
     volumes:
       - postgres_oltp_data:/var/lib/postgresql/data
       - ./docker/postgres_oltp/init:/docker-entrypoint-initdb.d:ro
+      - ./sql:/sql:ro
 
     healthcheck:
       test:
