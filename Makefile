@@ -1,4 +1,4 @@
-.PHONY: up down restart logs ps config check check_oltp check_triggers
+.PHONY: up down restart logs ps config check check_oltp check_triggers check_cdc
 
 up:
 	docker compose up -d
@@ -30,3 +30,6 @@ check_triggers:
 		-f /sql/checks/triggers_check.sql
 
 check: check_oltp check_triggers
+
+check_cdc:
+	./scripts/check-cdc-streaming.sh
