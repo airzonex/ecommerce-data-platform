@@ -3,18 +3,19 @@
 set -e
 
 psql \
-	-v NO_ERROR_STOP=1 \
+	-v ON_ERROR_STOP=1 \
 	--username "$POSTGRES_USER" \
 	--dbname "$POSTGRES_DB" \
 	-v debezium_user="$DEBEZIUM_USER" \
-	-v debezium_pass="$DEBEZIUM_PASS" <<'SQL'
+	-v debezium_pass="$DEBEZIUM_PASS" \
+	-v db_name="$POSTGRES_DB" <<'SQL'
 
 CREATE USER :"debezium_user"
 	WITH PASSWORD :'debezium_pass';
 
 ALTER USER :"debezium_user" WITH REPLICATION;
 
-GRANT CONNECT ON DATABASE ecommerce TO :"debezium_user";
+GRANT CONNECT ON DATABASE :"db_name" TO :"debezium_user";
 
 GRANT USAGE ON SCHEMA public TO :"debezium_user";
 
