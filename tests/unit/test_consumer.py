@@ -225,3 +225,57 @@ def test_process_message_raises_when_commit_and_rollback_fail(
     assert len(exc_info.value.exceptions) == 2
 
     kafka_consumer.commit.assert_not_called()
+
+
+def test_run_does_not_process_message_when_stop_requested_during_poll() -> None:
+    (
+        consumer,
+        kafka_consumer,
+        dwh_connection,
+        _repository
+    ) = _make_consumer()
+
+    message = MagicMock(spec=Message)
+
+    def poll_side_effect(*, timeout: float) -> Message:
+        consumer.request_stop()
+        return message
+
+    kafka_consumer.poll.side_effect = poll_side_effect
+
+    with patch.object(consumer, 'process_message') as process_message_mock:
+        consumer.run()
+
+    kafka_consumer.poll.assert_called_once_with(timeout=1.0)
+    process_message_mock.assert_not_called()
+
+    kafka_consumer.close.assert_called_once_with()
+    dwh_connection.close.assert_called_once_with()
+
+
+def test_run_finishes_current_message_when_stop_requested_during_processing() -> None:
+    (
+        consumer,
+        kafka_consumer,
+        dwh_connection,
+        _repository
+    ) = _make_consumer()
+
+    message = MagicMock(spec=Message)
+    kafka_consumer.poll.return_value = message
+
+    def process_message_side_effect(_: Message) -> None:
+        consumer.request_stop()
+
+    with patch.object(
+        consumer,
+        'process_message',
+        side_effect=process_message_side_effect
+    ) as process_message_mock:
+        consumer.run()
+
+    kafka_consumer.poll.assert_called_once_with(timeout=1.0)
+    process_message_mock.assert_called_once_with(message)
+
+    kafka_consumer.close.assert_called_once_with()
+    dwh_connection.close.assert_called_once_with()
