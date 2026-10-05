@@ -26,6 +26,7 @@ class CdcConsumer:
         self._dwh_connection = dwh_connection
         self._repository = repository
         self._topics = topics
+        self._stop_requested = False
 
     def run(self) -> None:
         logger.info('consumer started')
@@ -36,8 +37,11 @@ class CdcConsumer:
         )
 
         try:
-            while True:
+            while not self._stop_requested:
                 message = self._kafka_consumer.poll(timeout=1.0)
+
+                if self._stop_requested:
+                    break
 
                 if message is None:
                     continue
@@ -98,6 +102,9 @@ class CdcConsumer:
         self._kafka_consumer.close()
         self._dwh_connection.close()
         logger.info('consumer stopped')
+
+    def request_stop(self) -> None:
+        self._stop_requested = True
 
 
 def create_cdc_consumer(config: AppConfig) -> CdcConsumer:
