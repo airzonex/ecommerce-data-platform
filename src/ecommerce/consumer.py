@@ -1,4 +1,5 @@
 
+import logging
 from typing import Any
 
 import psycopg
@@ -10,6 +11,7 @@ from ecommerce.config import AppConfig
 from ecommerce.parser import parse_event
 from ecommerce.repository import CdcEventRepository
 
+logger = logging.getLogger(__name__)
 
 class CdcConsumer:
     
@@ -26,7 +28,12 @@ class CdcConsumer:
         self._topics = topics
 
     def run(self) -> None:
+        logger.info('consumer started')
         self._kafka_consumer.subscribe(list(self._topics))
+        logger.info(
+            'subscribed to topics: %s',
+            self._topics
+        )
 
         try:
             while True:
@@ -43,12 +50,30 @@ class CdcConsumer:
         error = message.error()
 
         if error is not None:
+            logger.error(
+                'Kafka message error: %s',
+                error
+            )
             raise KafkaException(error)
 
         event = parse_event(message)
 
         try:
-            self._repository.insert_event(event)
+            inserted = self._repository.insert_event(event)
+            if inserted:
+                logger.info(
+                    'message processed: topic=%s partition=%s offset=%s',
+                    event.kafka_topic,
+                    event.kafka_partition,
+                    event.kafka_offset
+                )
+            else:
+                logger.info(
+                    'duplicate skipped: topic=%s partition=%s offset=%s',
+                    event.kafka_topic,
+                    event.kafka_partition,
+                    event.kafka_offset
+                )
             self._dwh_connection.commit()
         except Exception as db_error:
             try:
@@ -61,6 +86,7 @@ class CdcConsumer:
                         rollback_error
                     ]
                 ) from None
+            logger.exception('database operation failed')
             raise
 
         self._kafka_consumer.commit(
@@ -71,6 +97,7 @@ class CdcConsumer:
     def close(self) -> None:
         self._kafka_consumer.close()
         self._dwh_connection.close()
+        logger.info('consumer stopped')
 
 
 def create_cdc_consumer(config: AppConfig) -> CdcConsumer:
