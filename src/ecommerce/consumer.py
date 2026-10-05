@@ -64,20 +64,6 @@ class CdcConsumer:
 
         try:
             inserted = self._repository.insert_event(event)
-            if inserted:
-                logger.info(
-                    'message processed: topic=%s partition=%s offset=%s',
-                    event.kafka_topic,
-                    event.kafka_partition,
-                    event.kafka_offset
-                )
-            else:
-                logger.info(
-                    'duplicate skipped: topic=%s partition=%s offset=%s',
-                    event.kafka_topic,
-                    event.kafka_partition,
-                    event.kafka_offset
-                )
             self._dwh_connection.commit()
         except Exception as db_error:
             try:
@@ -93,14 +79,42 @@ class CdcConsumer:
             logger.exception('database operation failed')
             raise
 
-        self._kafka_consumer.commit(
-            message=message,
-            asynchronous=False
-        )
+        try:
+            self._kafka_consumer.commit(
+                message=message,
+                asynchronous=False
+            )
+        except Exception:
+            logger.exception(
+                'Kafka offset commit failed: topic=%s partition=%s offset=%s',
+                event.kafka_topic,
+                event.kafka_partition,
+                event.kafka_offset
+            )
+            raise
+
+        if inserted:
+            logger.info(
+                'message processed: topic=%s partition=%s offset=%s',
+                event.kafka_topic,
+                event.kafka_partition,
+                event.kafka_offset
+            )
+        else:
+            logger.info(
+                'duplicate skipped: topic=%s partition=%s offset=%s',
+                event.kafka_topic,
+                event.kafka_partition,
+                event.kafka_offset
+            )
+
 
     def close(self) -> None:
-        self._kafka_consumer.close()
-        self._dwh_connection.close()
+        try:
+            self._kafka_consumer.close()
+        finally:
+            self._dwh_connection.close()
+        
         logger.info('consumer stopped')
 
     def request_stop(self) -> None:
