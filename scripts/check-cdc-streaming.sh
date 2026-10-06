@@ -23,11 +23,30 @@ cleanup() {
             >/dev/null 2>&1 || true
     fi
 
-    rm -f "${OUTPUT_FILE}" "${CONSUMER_ERROR_FILE}"
+    rm -f "${OUTPUT_FILE:-}" "${CONSUMER_ERROR_FILE}"
 }
 
 trap cleanup EXIT
 
+
+# =============================================================================
+# Warning prompt
+# =============================================================================
+
+
+if [[ "${FORCE_CDC_CHECK:-0}" != "1" ]]; then
+    echo "WARNING: This check modifies main OLTP database."
+    echo "Debezium will publish generated CDC events to Kafka."
+    echo "These events may propagate to DWH."
+    echo
+
+    read -r -p "Type 'yes' to continue: " answer
+
+    if [[ "${answer}" != "yes" ]]; then
+        echo "CDC check cancelled."
+        exit 0
+    fi
+fi
 
 # =============================================================================
 # Load environment
