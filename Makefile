@@ -8,6 +8,7 @@
 	check-oltp \
 	check-triggers \
 	check-cdc \
+	check-ingestion \
 	test \
 	test-unit \
 	test-integration \
@@ -56,6 +57,9 @@ check-db:
 
 check-cdc:
 	./scripts/check-cdc-streaming.sh
+
+check-ingestion:
+	./scripts/check-ingestion.sh
 
 test-unit:
 	pytest tests/unit
