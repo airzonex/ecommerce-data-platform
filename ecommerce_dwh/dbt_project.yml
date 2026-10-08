@@ -33,11 +33,14 @@ models:
   ecommerce_dwh:
     staging:
       +schema: stg
+      +materialized: view
 
     intermediate:
       +schema: int
+      +materialized: view
 
     marts:
       +schema: marts
+      +materialized: table
 
     
