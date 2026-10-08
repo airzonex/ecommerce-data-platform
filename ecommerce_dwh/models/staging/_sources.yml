@@ -1,0 +1,6 @@
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw data schema"
+    tables:
+      - name: cdc_events
