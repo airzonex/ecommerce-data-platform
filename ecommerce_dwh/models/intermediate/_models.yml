@@ -1,0 +1,21 @@
+models:
+  - name: int_products_events
+    description: >
+      Canonical product CDC events. Uses the after state for
+      snapshot/insert/update events and before state for deletes.
+
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+
+      - name: op
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['r', 'c', 'u', 'd']
+      
+      - name: source_lsn
+        data_tests:
+          - not_null
