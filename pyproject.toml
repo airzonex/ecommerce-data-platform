@@ -12,6 +12,8 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "confluent-kafka==2.15.1",
     "psycopg[binary]==3.3.6",
+    "dbt-core==1.12.5",
+    "dbt-postgres==1.11.0",
 ]
 
 [project.optional-dependencies]
