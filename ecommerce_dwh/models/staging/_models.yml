@@ -1,0 +1,35 @@
+models:
+  - name: stg_products_cdc
+    description: >
+      Parsed and typed CDC events for products from raw.cdc_events.
+      Preserves Debezium before/after state and Kafka metadata.
+
+    columns:
+      - name: product_id
+        description: Product business key extracted from Kafka event key.
+        data_tests:
+          - not_null
+
+      - name: op
+        description: Debezium operation code
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['r', 'c', 'u', 'd']
+
+      - name: is_tombstone
+        description: Indicates a Kafka tombstone record.
+        data_tests:
+          - not_null
+
+      - name: kafka_topic
+        data_tests:
+          - not_null
+      
+      - name: kafka_partition
+        data_tests:
+          - not_null
+
+      - name: kafka_offset
+        data_tests:
+          - not_null
