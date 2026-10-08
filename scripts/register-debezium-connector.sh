@@ -49,7 +49,9 @@ config = {
 			"public.orders,"
 			"public.order_items,"
 			"public.payments"
-		)
+		),
+
+		"decimal.handling.mode": "string"
 	}
 }
 
