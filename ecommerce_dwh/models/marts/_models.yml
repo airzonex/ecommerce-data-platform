@@ -20,3 +20,25 @@ models:
       - name: is_current
         data_tests:
           - not_null
+
+  - name: dim_customers
+    description: >
+      SCD Type 2 customer dimension containing historical customer states.
+    
+    columns:
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - unique
+        
+      - name: customer_id
+        data_tests:
+          - not_null
+
+      - name: valid_from
+        data_tests:
+          - not_null
+
+      - name: is_current
+        data_tests:
+          - not_null
