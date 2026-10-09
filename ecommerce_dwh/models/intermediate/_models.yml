@@ -50,3 +50,13 @@ models:
       - name: source_lsn
         data_tests:
           - not_null
+
+  - name: int_customers_current
+    description: >
+      Last known state of each customer, including deleted customers
+
+    columns:
+      - name: customer_id
+        data_tests:
+          - not_null
+          - unique
