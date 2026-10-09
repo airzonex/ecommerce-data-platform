@@ -1,0 +1,22 @@
+models:
+  - name: dim_products
+    description: >
+      SCD Type 2 product dimension containing historical product states.
+    
+    columns:
+      - name: product_sk
+        data_tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        data_tests:
+          - not_null
+
+      - name: valid_from
+        data_tests:
+          - not_null
+
+      - name: is_current
+        data_tests:
+          - not_null
