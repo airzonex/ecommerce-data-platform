@@ -29,3 +29,24 @@ models:
         data_tests:
           - not_null
           - unique
+
+  - name: int_customers_events
+    description: >
+      Canonical customer CDC events. Uses the after state for
+      snapshot/insert/update events and before state for deletes.
+
+    columns:
+      - name: customer_id
+        data_tests:
+          - not_null
+
+      - name: op
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['r', 'c', 'u', 'd']
+      
+      - name: source_lsn
+        data_tests:
+          - not_null
