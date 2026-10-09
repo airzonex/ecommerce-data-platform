@@ -51,6 +51,14 @@ models:
         data_tests:
           - not_null
 
+      - name: source_tx_id
+        data_tests:
+          - not_null
+
+      - name: source_ts
+        data_tests:
+          - not_null
+
   - name: int_customers_current
     description: >
       Last known state of each customer, including deleted customers
