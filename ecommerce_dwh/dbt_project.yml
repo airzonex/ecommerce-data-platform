@@ -43,4 +43,7 @@ models:
       +schema: marts
       +materialized: table
 
+vars:
+  dim_date_start: '2020-01-01'
+  dim_date_end: '2035-12-31'
     
