@@ -130,3 +130,25 @@ models:
       - name: order_date_sk
         data_tests:
           - not_null
+
+  - name: fct_payments
+    description: >
+      Payments fact table. Grain: one row per payment's latest known state.
+    
+    columns:
+      - name: payment_id
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        data_tests:
+          - not_null
+
+      - name: customer_sk
+        data_tests:
+          - not_null
+
+      - name: payment_date_sk
+        data_tests:
+          - not_null
