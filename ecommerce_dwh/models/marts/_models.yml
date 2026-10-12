@@ -78,3 +78,33 @@ models:
       - name: is_weekend
         data_tests:
           - not_null
+
+  - name: fct_orders
+    description: >
+      Orders fact table. Grain: one row per order in its latest known state.
+    
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        data_tests:
+          - not_null
+
+      - name: customer_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_sk
+
+      - name: order_date_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_sk
