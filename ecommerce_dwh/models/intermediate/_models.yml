@@ -76,3 +76,32 @@ models:
         data_tests:
           - not_null
           - unique
+
+  - name: int_orders_events
+    description: >
+      Canonical orders CDC events. Uses the after state for
+      snapshot/insert/update events and before state for deletes.
+
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+
+      - name: op
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['r', 'c', 'u', 'd']
+      
+      - name: source_lsn
+        data_tests:
+          - not_null
+
+      - name: source_tx_id
+        data_tests:
+          - not_null
+
+      - name: source_ts
+        data_tests:
+          - not_null
