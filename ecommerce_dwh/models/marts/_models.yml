@@ -108,3 +108,25 @@ models:
               arguments:
                 to: ref('dim_date')
                 field: date_sk
+
+  - name: fct_order_items
+    description: >
+      Order items fact table. Grain: one row per order item in its latest known state.
+    
+    columns:
+      - name: order_item_id
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_sk
+        data_tests:
+          - not_null
+
+      - name: product_sk
+        data_tests:
+          - not_null
+
+      - name: order_date_sk
+        data_tests:
+          - not_null
