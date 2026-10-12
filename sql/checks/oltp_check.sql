@@ -383,7 +383,87 @@ END $$;
 
 
 -- =============================================================================
--- 10. Final result
+-- 10. Order can't be created earlier than customer contained in it
+-- =============================================================================
+
+DO $$
+DECLARE
+    invalid_count BIGINT;
+BEGIN
+    SELECT COUNT(*)
+    INTO invalid_count
+    FROM (
+        SELECT
+            o.*
+        FROM orders o
+        JOIN customers c
+            ON o.customer_id = c.id
+        WHERE o.created_at < c.created_at
+    ) t;
+
+    IF invalid_count > 0 THEN
+        RAISE EXCEPTION
+            'CHECK FAILED: % orders are created earlier than customers contained in them',
+            invalid_count;
+    END IF;
+END $$;
+
+
+-- =============================================================================
+-- 11. Order can't be created earlier than product contained in it
+-- =============================================================================
+
+DO $$
+DECLARE
+    invalid_count BIGINT;
+BEGIN
+    SELECT COUNT(*)
+    INTO invalid_count
+    FROM (
+        SELECT
+            oi.*
+        FROM order_items oi
+        JOIN orders o on o.id = oi.order_id
+        JOIN products p on p.id = oi.product_id
+        WHERE o.created_at < p.created_at
+    ) t;
+
+    IF invalid_count > 0 THEN
+        RAISE EXCEPTION
+            'CHECK FAILED: % order items reference products created after their orders',
+            invalid_count;
+    END IF;
+END $$;
+
+
+-- =============================================================================
+-- 12. Payment can't be created earlier than the order contained in it
+-- =============================================================================
+
+DO $$
+DECLARE
+    invalid_count BIGINT;
+BEGIN
+    SELECT COUNT(*)
+    INTO invalid_count
+    FROM (
+        SELECT
+            p.*
+        FROM payments p
+        JOIN orders o ON o.id = p.order_id
+        WHERE p.created_at < o.created_at
+    ) t;
+
+    IF invalid_count > 0 THEN
+        RAISE EXCEPTION
+            'CHECK FAILED: % payments are created earlier than orders contained in them',
+            invalid_count;
+    END IF;
+END $$;
+
+
+-- =============================================================================
+-- 13. Final result
 -- =============================================================================
 
 SELECT 'OLTP CHECKS PASSED' AS result;
