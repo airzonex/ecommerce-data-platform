@@ -114,16 +114,24 @@ INSERT INTO seed_orders (
     payment_count
 )
 WITH params AS (
-    SELECT TIMESTAMPTZ '2026-09-01 00:00:00+00' AS base_date
+    SELECT
+		TIMESTAMPTZ '2026-09-01 00:00:00+00' AS base_date,
+		(SELECT min(created_at) from products) AS first_product_created_at
 ),
 customer_orders AS (
     SELECT
         c.id AS customer_id,
+		greatest(
+			c.created_at,
+			p.first_product_created_at
+		) as order_start_at,
+		p.base_date,
         generate_series(
             1,
             1 + floor(random() * 10)::INTEGER
         ) AS order_number
     FROM customers AS c
+	CROSS JOIN params AS p
 )
 SELECT
     row_number() OVER (
@@ -143,38 +151,38 @@ SELECT
         ]
     )[1 + floor(random() * 6)::INTEGER],
 
-    base_date
-        - floor(random() * 180)::INTEGER * INTERVAL '1 day'
-        - floor(random() * 24)::INTEGER * INTERVAL '1 hour',
+    order_start_at
+        + (base_date - order_start_at) * random()
+		as created_at,
 
     1 + floor(random() * 3)::INTEGER
 
-FROM customer_orders
-CROSS JOIN params;
+FROM customer_orders;
 
 -- -------------------------------------------------------
 -- seed_orders_items
 -- -------------------------------------------------------
 
-INSERT INTO seed_order_items(
-	seed_order_id,
-	product_id,
-	quantity,
-	unit_price
+INSERT INTO seed_order_items (
+    seed_order_id,
+    product_id,
+    quantity,
+    unit_price
 )
-SELECT 
-	o.seed_order_id,
-	p.id,
-	1 + floor(random() * 5)::integer,
-	p.price
+SELECT
+    o.seed_order_id,
+    p.id,
+    1 + floor(random() * 5)::integer,
+    p.price
 FROM seed_orders AS o
 CROSS JOIN LATERAL (
-	SELECT
-		id,
-		price
-	FROM products
-	ORDER BY random()
-	LIMIT 1 + floor(random() * 10)::integer
+    SELECT
+        p.id,
+        p.price
+    FROM products AS p
+    WHERE p.created_at <= o.created_at
+    ORDER BY random()
+    LIMIT 1 + floor(random() * 10)::integer
 ) AS p;
 
 -- -------------------------------------------------------
