@@ -144,3 +144,13 @@ models:
       - name: source_ts
         data_tests:
           - not_null
+
+  - name: int_order_items_current
+    description: >
+      Last known state of each order item, including deleted order items.
+
+    columns:
+      - name: order_item_id
+        data_tests:
+          - not_null
+          - unique
