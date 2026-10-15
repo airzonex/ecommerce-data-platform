@@ -22,7 +22,9 @@ export PATH := $(VENV_BIN):$(PATH)
 	prepare-test-oltp-db \
 	check-db \
 	register-debezium-connector \
-	check-dwh-e2e
+	check-dwh-e2e \
+	start-ingestion-background \
+	stop-ingestion-background
 
 check-venv:
 	@test -x "$(VENV_BIN)/python" || \
@@ -90,3 +92,8 @@ register-debezium-connector: check-venv
 check-dwh-e2e: check-venv
 	./scripts/check-e2e-cdc.sh
 
+start-ingestion-background: check-venv
+	./scripts/start-ingestion-background.sh
+
+stop-ingestion-background:
+	./scripts/stop-ingestion-background.sh
