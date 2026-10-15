@@ -1,3 +1,8 @@
+VENV ?= .venv
+VENV_BIN := $(CURDIR)/$(VENV)/bin
+
+export PATH := $(VENV_BIN):$(PATH)
+
 .PHONY: \
 	up \
 	down \
@@ -5,6 +10,7 @@
 	logs \
 	ps \
 	config \
+	check-venv \
 	check-oltp \
 	check-triggers \
 	check-cdc \
@@ -17,6 +23,10 @@
 	check-db \
 	register-debezium-connector \
 	check-dwh-e2e
+
+check-venv:
+	@test -x "$(VENV_BIN)/python" || \
+		(echo "ERROR: virtual environment not found at $(VENV)" >&2; exit 1)
 
 up:
 	docker compose up -d
@@ -57,26 +67,26 @@ check-db:
 	$(MAKE) check-oltp
 	$(MAKE) check-triggers
 
-check-cdc:
+check-cdc: check-venv
 	./scripts/check-cdc-streaming.sh
 
 check-ingestion:
 	./scripts/check-ingestion.sh
 
-test-unit:
+test-unit: check-venv
 	pytest tests/unit
 
-test-integration:
+test-integration: check-venv
 	pytest tests/integration
 
 test: test-unit test-integration
 
-run-ingestion:
+run-ingestion: check-venv
 	ecommerce-cdc
 
-register-debezium-connector:
+register-debezium-connector: check-venv
 	./scripts/register-debezium-connector.sh
 
-check-dwh-e2e:
+check-dwh-e2e: check-venv
 	./scripts/check-e2e-cdc.sh
 

@@ -72,7 +72,7 @@ CONNECTOR_STATUS="$(
         "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status"
 )"
 
-python3 - "${CONNECTOR_STATUS}" <<'PY'
+python - "${CONNECTOR_STATUS}" <<'PY'
 import json
 import sys
 
@@ -237,7 +237,7 @@ fi
 # Validate events
 # =============================================================================
 
-python3 - "${OUTPUT_FILE}" "${PRODUCT_ID}" <<'PY'
+python - "${OUTPUT_FILE}" "${PRODUCT_ID}" <<'PY'
 import json
 import sys
 

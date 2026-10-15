@@ -11,7 +11,7 @@ set -a
 source .env
 set +a
 
-python3 - <<'PY' | curl \
+python - <<'PY' | curl \
 	--fail-with-body \
 	--silent \
 	--show-error \

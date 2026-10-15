@@ -82,7 +82,7 @@ check_debezium_connector() {
         return 1
     fi
 
-    if ! python3 - "${connector_status}" <<'PY'
+    if ! python - "${connector_status}" <<'PY'
 import json
 import sys
 
