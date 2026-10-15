@@ -304,12 +304,12 @@ build_models || exit 1
 
 
 # =============================================================================
-# After changes DWH check
+# After first changes DWH check
 # =============================================================================
 
 
 echo
-echo "After changes DWH check..."
+echo "Check DWH after first changes..."
 
 docker compose exec -T postgres-dwh \
     psql -XqAt \
@@ -323,4 +323,146 @@ docker compose exec -T postgres-dwh \
     -v order_item_id="${ORDER_ITEM_ID}" \
     -f /sql/e2e/dwh_after_first_changes_check.sql
 
-echo "After changes DWH check passed"
+echo "After first changes DWH check passed"
+
+
+# =============================================================================
+# Change status in orders and payments in OLTP
+# =============================================================================
+
+
+echo
+echo "Update status of order and payment..."
+
+docker compose exec -T postgres-oltp \
+    psql -XqAt \
+    -U "${POSTGRES_OLTP_USER}" \
+    -d "${POSTGRES_OLTP_DB}" \
+    -v ON_ERROR_STOP=1 \
+    -v order_id="${ORDER_ID}" \
+    -v payment_id="${PAYMENT_ID}" \
+    -f /sql/e2e/oltp_second_changes.sql
+
+echo "Updates are done"
+
+
+# =============================================================================
+# Wait for DWH
+# =============================================================================
+
+
+QUERY="
+    SELECT COUNT(*)
+    FROM (
+        SELECT 1
+        FROM raw.cdc_events
+        WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
+            AND op = 'u'
+            AND event_key ->> 'id' = '${PAYMENT_ID}'
+        UNION ALL
+        SELECT 1
+        FROM raw.cdc_events
+        WHERE kafka_topic = '${KAFKA_TOPIC_ORDERS}'
+            AND op = 'u'
+            AND event_key ->> 'id' = '${ORDER_ID}'
+    );
+"
+
+wait_for_dwh "${QUERY}" 2 || exit 1
+
+
+# =============================================================================
+# Build models
+# =============================================================================
+
+
+build_models || exit 1
+
+
+# =============================================================================
+# After second changes DWH check
+# =============================================================================
+
+
+echo
+echo "Check DWH after second changes..."
+
+docker compose exec -T postgres-dwh \
+    psql -XqAt \
+    -U "${POSTGRES_DWH_USER}" \
+    -d "${POSTGRES_DWH_DB}" \
+    -v ON_ERROR_STOP=1 \
+    -v order_id="${ORDER_ID}" \
+    -v payment_id="${PAYMENT_ID}" \
+    -f /sql/e2e/dwh_after_second_changes_check.sql
+
+echo "After second changes DWH check passed"
+
+
+# =============================================================================
+# Delete payment in OLTP
+# =============================================================================
+
+
+echo
+echo "Delete payment..."
+
+docker compose exec -T postgres-oltp \
+    psql -XqAt \
+    -U "${POSTGRES_OLTP_USER}" \
+    -d "${POSTGRES_OLTP_DB}" \
+    -v ON_ERROR_STOP=1 \
+    -v payment_id="${PAYMENT_ID}" \
+    -f /sql/e2e/oltp_third_changes.sql
+
+echo "Delete is done"
+
+
+# =============================================================================
+# Wait for DWH
+# =============================================================================
+
+
+QUERY="
+    SELECT COUNT(*)
+    FROM (
+        SELECT 1
+        FROM raw.cdc_events
+        WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
+            AND op = 'd'
+            AND event_key ->> 'id' = '${PAYMENT_ID}'
+    );
+"
+
+wait_for_dwh "${QUERY}" 1 || exit 1
+
+
+# =============================================================================
+# Build models
+# =============================================================================
+
+
+build_models || exit 1
+
+
+# =============================================================================
+# After third changes DWH check
+# =============================================================================
+
+
+echo
+echo "Check DWH after third changes..."
+
+docker compose exec -T postgres-dwh \
+    psql -XqAt \
+    -U "${POSTGRES_DWH_USER}" \
+    -d "${POSTGRES_DWH_DB}" \
+    -v ON_ERROR_STOP=1 \
+    -v payment_id="${PAYMENT_ID}" \
+    -v order_id="${ORDER_ID}" \
+    -f /sql/e2e/dwh_after_third_changes_check.sql
+
+echo "After third changes DWH check passed"
+
+echo
+echo "ALL CHECKS PASSED"
