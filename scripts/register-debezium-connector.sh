@@ -18,7 +18,7 @@ python3 - <<'PY' | curl \
 	-X POST \
 	-H 'Content-Type: application/json' \
 	--data-binary @- \
-	http://localhost:8083/connectors
+	http://localhost:${KAFKA_CONNECT_HOST_PORT}/connectors
 import json
 import os
 
