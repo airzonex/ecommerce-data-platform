@@ -20,6 +20,27 @@ KAFKA_TOPIC_PAYMENTS="ecommerce.public.payments"
 
 
 # =============================================================================
+# Warning prompt
+# =============================================================================
+
+
+if [[ "${FORCE_E2E_CHECK:-0}" != "1" ]]; then
+    echo "WARNING: This E2E check modifies the main OLTP database."
+    echo "It will insert, update, and delete test data."
+    echo "Debezium will publish generated CDC events to Kafka."
+    echo "These events will propagate to DWH and dbt models will be rebuilt."
+    echo
+
+    read -r -p "Type 'yes' to continue: " answer
+
+    if [[ "${answer}" != "yes" ]]; then
+        echo "E2E check cancelled."
+        exit 0
+    fi
+fi
+
+
+# =============================================================================
 # Check consumer
 # =============================================================================
 
@@ -114,24 +135,26 @@ echo "  order item id:  ${ORDER_ITEM_ID}"
 
 wait_for_dwh() {
     local query="$1"
-    local expected="$2"
-    local attempts="${3:-30}"
+    local attempts="${2:-30}"
     local actual=""
     
     echo
     echo "Waiting for events in DWH..."
 
     for _ in $(seq 1 "$attempts"); do
-        actual="$(
+        if ! actual="$(
             docker compose exec -T postgres-dwh \
                 psql -XqAt \
                 -U "${POSTGRES_DWH_USER}" \
                 -d "${POSTGRES_DWH_DB}" \
                 -v ON_ERROR_STOP=1 \
                 -c "${query}"
-        )"
+        )"; then
+            echo "ERROR: failed to query DWH" >&2
+            return 1
+        fi
 
-        if [[ "${actual}" == "${expected}" ]]; then
+        if [[ "${actual}" == "t" ]]; then
             echo "CDC events were found in DWH"
             return 0
         fi
@@ -140,7 +163,7 @@ wait_for_dwh() {
     done
 
     echo
-    echo "ERROR: expected ${expected} events, got '${actual}'" >&2
+    echo "ERROR: not all events found in raw.cdc_events" >&2
     return 1
 }
 
@@ -151,35 +174,37 @@ wait_for_dwh() {
 
 
 QUERY="
-    SELECT COUNT(*)
-    FROM (
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_PRODUCTS}'
-            AND op = 'c'
-            AND event_key ->> 'id' = '${PRODUCT_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_CUSTOMERS}'
-            AND op = 'c'
-            AND event_key ->> 'id' = '${CUSTOMER_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_ORDERS}'
-            AND op = 'c'
-            AND event_key ->> 'id' = '${ORDER_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_ORDER_ITEMS}'
-            AND op = 'c'
-            AND event_key ->> 'id' = '${ORDER_ITEM_ID}'
-    );
+    SELECT 
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_PRODUCTS}'
+                AND op = 'c'
+                AND event_key ->> 'id' = '${PRODUCT_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_CUSTOMERS}'
+                AND op = 'c'
+                AND event_key ->> 'id' = '${CUSTOMER_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_ORDERS}'
+                AND op = 'c'
+                AND event_key ->> 'id' = '${ORDER_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_ORDER_ITEMS}'
+                AND op = 'c'
+                AND event_key ->> 'id' = '${ORDER_ITEM_ID}');
 "
 
-wait_for_dwh "${QUERY}" 4 || exit 1
+wait_for_dwh "${QUERY}" || exit 1
 
 
 # =============================================================================
@@ -270,29 +295,30 @@ echo "Updates and insert are done"
 
 
 QUERY="
-    SELECT COUNT(*)
-    FROM (
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_PRODUCTS}'
-            AND op = 'u'
-            AND event_key ->> 'id' = '${PRODUCT_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_CUSTOMERS}'
-            AND op = 'u'
-            AND event_key ->> 'id' = '${CUSTOMER_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
-            AND op = 'c'
-            AND event_key ->> 'id' = '${PAYMENT_ID}'
-    );
+    SELECT 
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_PRODUCTS}'
+                AND op = 'u'
+                AND event_key ->> 'id' = '${PRODUCT_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_CUSTOMERS}'
+                AND op = 'u'
+                AND event_key ->> 'id' = '${CUSTOMER_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
+                AND op = 'c'
+                AND event_key ->> 'id' = '${PAYMENT_ID}');
 "
 
-wait_for_dwh "${QUERY}" 3 || exit 1
+wait_for_dwh "${QUERY}" || exit 1
 
 
 # =============================================================================
@@ -352,23 +378,23 @@ echo "Updates are done"
 
 
 QUERY="
-    SELECT COUNT(*)
-    FROM (
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
-            AND op = 'u'
-            AND event_key ->> 'id' = '${PAYMENT_ID}'
-        UNION ALL
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_ORDERS}'
-            AND op = 'u'
-            AND event_key ->> 'id' = '${ORDER_ID}'
-    );
+    SELECT 
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
+                AND op = 'u'
+                AND event_key ->> 'id' = '${PAYMENT_ID}')
+        AND
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_ORDERS}'
+                AND op = 'u'
+                AND event_key ->> 'id' = '${ORDER_ID}');
 "
 
-wait_for_dwh "${QUERY}" 2 || exit 1
+wait_for_dwh "${QUERY}" || exit 1
 
 
 # =============================================================================
@@ -424,17 +450,16 @@ echo "Delete is done"
 
 
 QUERY="
-    SELECT COUNT(*)
-    FROM (
-        SELECT 1
-        FROM raw.cdc_events
-        WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
-            AND op = 'd'
-            AND event_key ->> 'id' = '${PAYMENT_ID}'
-    );
+    SELECT
+        EXISTS (
+            SELECT 1
+            FROM raw.cdc_events
+            WHERE kafka_topic = '${KAFKA_TOPIC_PAYMENTS}'
+                AND op = 'd'
+                AND event_key ->> 'id' = '${PAYMENT_ID}');
 "
 
-wait_for_dwh "${QUERY}" 1 || exit 1
+wait_for_dwh "${QUERY}" || exit 1
 
 
 # =============================================================================
