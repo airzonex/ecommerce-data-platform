@@ -14,7 +14,8 @@
 	test-integration \
 	run-ingestion \
 	prepare-test-oltp-db \
-	check-db
+	check-db \
+	register-debezium-connector
 
 up:
 	docker compose up -d
@@ -71,3 +72,6 @@ test: test-unit test-integration
 
 run-ingestion:
 	ecommerce-cdc
+
+register-debezium-connector:
+	./scripts/register-debezium-connector.sh
