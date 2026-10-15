@@ -15,7 +15,8 @@
 	run-ingestion \
 	prepare-test-oltp-db \
 	check-db \
-	register-debezium-connector
+	register-debezium-connector \
+	check-dwh-e2e
 
 up:
 	docker compose up -d
@@ -75,3 +76,7 @@ run-ingestion:
 
 register-debezium-connector:
 	./scripts/register-debezium-connector.sh
+
+check-dwh-e2e:
+	./scripts/check-e2e-cdc.sh
+
