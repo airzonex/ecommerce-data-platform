@@ -11,6 +11,8 @@ set -a
 source .env
 set +a
 
+CONNECTOR_NAME="ecommerce-postgres-connector"
+CONNECT_URL="http://localhost:${KAFKA_CONNECT_HOST_PORT}"
 KAFKA_GROUP_ID="ecommerce-dwh-ingestion"
 KAFKA_TOPIC_PRODUCTS="ecommerce.public.products"
 KAFKA_TOPIC_CUSTOMERS="ecommerce.public.customers"
@@ -41,41 +43,148 @@ fi
 
 
 # =============================================================================
-# Check consumer
+# Check Debezium connector
 # =============================================================================
 
 
-echo
-echo "Checking CDC ingestion consumer..."
+check_debezium_connector() {
+    local connector_status=""
 
-set +e
+    echo
+    echo "Checking Kafka connect..."
 
-GROUP_STATUS="$(
-    docker compose exec -T kafka \
-        /opt/kafka/bin/kafka-consumer-groups.sh \
-        --bootstrap-server localhost:29092 \
-        --describe \
-        --group "${KAFKA_GROUP_ID}" \
-        2>&1
-)"
+    if ! curl \
+        --fail \
+        --silent \
+        --show-error \
+        "${CONNECT_URL}/" \
+        >/dev/null
+    then
+        echo "ERROR: Kafka Connect is not available" >&2
+        echo "Run: make up" >&2
+        return 1
+    fi
 
-GROUP_STATUS_RC=$?
+    echo "Kafka Connect is OK"
 
-set -e
+    echo
+    echo "Checking Debezium connector..."
 
-if [[ ${GROUP_STATUS_RC} -ne 0 ]]; then
-    echo "ERROR: failed to get Kafka consumer group status"
-    echo "${GROUP_STATUS}"
-    exit 1
-fi
+    if ! connector_status="$(
+        curl \
+        --fail \
+        --silent \
+        --show-error \
+        "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status"
+    )"; then
+        echo "ERROR: Debezium connector '${CONNECTOR_NAME}' is not registered" >&2
+        echo "Run: make register-debezium-connector" >&2
+        return 1
+    fi
 
-if grep -qE "has no active members|does not exist" <<< "${GROUP_STATUS}"; then
-    echo "ERROR: CDC ingestion consumer is not running"
-    echo "Run: make run-ingestion"
-    exit 1
-fi
+    if ! python3 - "${connector_status}" <<'PY'
+import json
+import sys
 
-echo "CDC ingestion consumer is OK"
+status = json.loads(sys.argv[1])
+
+connector_state = status["connector"]["state"]
+tasks = status["tasks"]
+task_states = [task["state"] for task in tasks]
+
+if connector_state != "RUNNING":
+    print(
+        f"ERROR: Debezium connector state is {connector_state}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+if not tasks:
+    print(
+        "ERROR: Debezium connector has no tasks",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+if any(state != "RUNNING" for state in task_states):
+    print(
+        f"ERROR: Debezium task states are {task_states}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+print("Debezium connector is OK")
+print(f"  connector:    {connector_state}")
+print(f"  tasks:        {', '.join(task_states)}")
+PY
+    then
+        return 1
+    fi
+}
+
+
+# =============================================================================
+# Check DWH ingestion consumer
+# =============================================================================
+
+
+check_ingestion_consumer() {
+    local group_status=""
+    local group_status_rc=0
+
+    echo
+    echo "Checking CDC ingestion consumer..."
+
+    set +e
+
+    group_status="$(
+        docker compose exec -T kafka \
+            /opt/kafka/bin/kafka-consumer-groups.sh \
+            --bootstrap-server localhost:29092 \
+            --describe \
+            --group "${KAFKA_GROUP_ID}" \
+            2>&1
+    )"
+
+    group_status_rc=$?
+
+    set -e
+
+    if (( group_status_rc != 0 )); then
+        if grep -qiE \
+            "GroupIdNotFoundException|group .* not found|does not exist" \
+            <<< "${group_status}"
+        then
+            echo "ERROR: CDC ingestion consumer group does not exist" >&2
+            echo "Run: make run-ingestion" >&2
+            return 1
+        fi
+
+        echo "ERROR: failed to get Kafka consumer group status" >&2
+        echo "${group_status}" >&2
+        return 1
+    fi
+
+    if grep -qiE \
+        "has no active members|does not exist|GroupIdNotFoundException|group .* not found" \
+        <<< "${group_status}"
+    then
+        echo "ERROR: CDC ingestion consumer is not running" >&2
+        echo "Run: make run-ingestion" >&2
+        return 1
+    fi
+
+    echo "CDC ingestion consumer is OK"
+}
+
+
+# =============================================================================
+# Preflight checks
+# =============================================================================
+
+
+check_debezium_connector || exit 1
+check_ingestion_consumer || exit 1
 
 
 # =============================================================================
