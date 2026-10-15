@@ -2,7 +2,17 @@
 
 set -euo pipefail
 
+if [[ ! -f .env ]]; then
+    echo "ERROR: .env file not found"
+    exit 1
+fi
+
+set -a
+source .env
+set +a
+
 CONNECTOR_NAME="ecommerce-postgres-connector"
+CONNECT_URL="http://localhost:${KAFKA_CONNECT_HOST_PORT}"
 TOPIC="ecommerce.public.products"
 CONSUMER_GROUP="cdc-check-$(date +%s%N)"
 
@@ -48,19 +58,6 @@ if [[ "${FORCE_CDC_CHECK:-0}" != "1" ]]; then
     fi
 fi
 
-# =============================================================================
-# Load environment
-# =============================================================================
-
-if [[ ! -f .env ]]; then
-    echo "ERROR: .env file not found"
-    exit 1
-fi
-
-set -a
-source .env
-set +a
-
 
 # =============================================================================
 # Check connector
@@ -72,7 +69,7 @@ CONNECTOR_STATUS="$(
     curl \
         --fail \
         --silent \
-        "http://localhost:8083/connectors/${CONNECTOR_NAME}/status"
+        "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status"
 )"
 
 python3 - "${CONNECTOR_STATUS}" <<'PY'
@@ -152,11 +149,7 @@ echo "Executing INSERT..."
 
 PRODUCT_ID="$(
     docker compose exec -T postgres-oltp \
-        psql \
-        -X \
-        -A \
-        -t \
-        -q \
+        psql -XAtq \
         -U "${POSTGRES_OLTP_USER}" \
         -d "${POSTGRES_OLTP_DB}" \
         -v ON_ERROR_STOP=1 \
