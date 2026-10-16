@@ -25,7 +25,8 @@ export PATH := $(VENV_BIN):$(PATH)
 	check-dwh-e2e \
 	start-ingestion-background \
 	stop-ingestion-background \
-	check-idempotency
+	check-idempotency \
+	dbt-build
 
 check-venv:
 	@test -x "$(VENV_BIN)/python" || \
@@ -101,3 +102,6 @@ stop-ingestion-background:
 
 check-idempotency: check-venv
 	./scripts/check-cdc-idempotency.sh
+
+dbt-build: check-venv
+	cd ecommerce_dwh && dbt build
