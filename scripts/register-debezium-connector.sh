@@ -28,20 +28,31 @@ trap cleanup EXIT
 # =============================================================================
 
 
-echo "Checking Kafka Connect..."
+echo "Waiting for Kafka Connect..."
 
-if ! curl \
-	--fail \
-	--silent \
-	--show-error \
-	"${CONNECT_URL}/" \
-	>/dev/null
-then
+KAFKA_CONNECT_READY=0
+
+for _ in $(seq 1 30); do
+	if curl \
+		--fail \
+		--silent \
+		--show-error \
+		"${CONNECT_URL}/" \
+		>/dev/null 2>&1
+	then
+		KAFKA_CONNECT_READY=1
+		break
+	fi
+
+	sleep 1
+done
+
+if (( KAFKA_CONNECT_READY == 1 )); then
+	echo "Kafka Connect is available"
+else
 	echo "ERROR: Kafka Connect is not available at ${CONNECT_URL}" >&2
 	exit 1
 fi
-
-echo "Kafka Connect is available"
 
 
 # =============================================================================
