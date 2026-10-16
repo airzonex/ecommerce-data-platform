@@ -24,7 +24,8 @@ export PATH := $(VENV_BIN):$(PATH)
 	register-debezium-connector \
 	check-dwh-e2e \
 	start-ingestion-background \
-	stop-ingestion-background
+	stop-ingestion-background \
+	check-idempotency
 
 check-venv:
 	@test -x "$(VENV_BIN)/python" || \
@@ -97,3 +98,6 @@ start-ingestion-background: check-venv
 
 stop-ingestion-background:
 	./scripts/stop-ingestion-background.sh
+
+check-idempotency: check-venv
+	./scripts/check-cdc-idempotency.sh
